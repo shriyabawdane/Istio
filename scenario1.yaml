@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: deploy-flask-v1
+    tier: frontend
+  name: deploy-flask-v1
+  namespace: flask
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: deploy-flask-v1
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: deploy-flask-v1
+        tier: frontend
+    spec:
+      containers:
+      - image: shriyabawdane/flask:v1
+        name: flask
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: deploy-flask-v2
+    tier: frontend
+  name: deploy-flask-v2
+  namespace: flask
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: deploy-flask-v2
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: deploy-flask-v2
+        tier: frontend
+    spec:
+      containers:
+      - image: shriyabawdane/flask:v2
+        name: flask
+
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: flask-gateway
+  namespace: flask
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 8080
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: flask-vs
+  namespace: flask
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - flask-gateway
+  http:
+  - name: "flask-load-balance"
+    route:
+    - destination:
+        host: flask-svc
+        subset: v1
+      weight: 50
+    - destination:
+        host: flask-svc
+        subset: v2
+      weight: 50
+
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: flask-destination
+spec:
+  host: "*"
+  subsets:
+  - name: v1
+    labels:
+      app: deploy-flask-v1
+  - name: v2
+    labels:
+      app: deploy-flask-v2
